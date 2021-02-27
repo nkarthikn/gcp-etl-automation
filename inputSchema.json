@@ -1,0 +1,228 @@
+{
+	"pipelineID": "1",
+	"pipelineName": "First_Pipeline",
+	"pipelineDescription": "My First Pipeline",
+	"subjectArea": "Customer",
+	"domain": "Customer",
+	"createdTimeStamp": "2018-01-01",
+	"updatedTimeStamp": "2018-01-01",
+	"pipelineRunOptions": {
+		"runner": "DirectRunner",
+		"project": "InformationGrid",
+		"secret": "Project secret"
+	},
+	"stagingRootFolders": {
+		"raw": "gs://iig/raw/",
+		"semiprepared": "gs://iig/semiprepared/",
+		"prepared": "gs://iig/prepared/"
+	},
+	"transforms": [
+		{
+			"stageSeqNo": "1",
+			"stageName": "CloudSQLIngestion",
+			"stageDescription": "Ingest from Cloud SQL",
+			"stageType": "reader",
+			"stageInput": {
+				"type": "cloudsql",
+				"properties": {
+					"databaseName": "Test",
+					"databaseHost": "104.197.80.181",
+					"userName": "root",
+					"password": "root",
+					"databasePort": "",
+					"gcpProject":"festive-radar-192911",
+					"stagingLocation":"gs://iigbucket/staging",
+					"tempLocation":"gs://iigbucket/temp",
+					"templateLocation":"",
+					"runner":"DataflowRunner",
+					"dbQuery": "SELECT * FROM departments"
+				},
+				"schema": {"employeeID":"int", "firstName":"string"},
+				"filters": [],
+				"sourceCustomSQL": ""
+			}
+		},
+		{
+			"stageSeqNo":"2",
+			"stageName": "WriteToRaw",
+			"stageDescription":"Write to Raw Storage ",
+			"stageType": "writer",
+			"stageInput": {
+				"schema": {"employeeID":"int", "firstName":"string"},
+				"delimiter":","
+			},
+			"stageOutput": {
+				"type": "file",
+				"properties": {
+					"fileLocation": "customer_raw",
+					"fileformat": "csv",
+					"fileDelimiter": ",",
+					"fileCompression": ""
+				},
+				"schema": {"employeeID":"int", "firstName":"string"}
+			}
+		},
+		{
+			"stageSeqNo": "3",
+			"stageName": "ReadFromRaw",
+			"stageDescription": "Read raw Employee File",
+			"stageType": "reader",
+			"stageInput": {
+				"type": "file",
+				"properties": {
+					"fileLocation": "customer_raw",
+					"fileformat": "csv",
+					"fileDelimiter": ",",
+					"fileCompression": ""
+				},
+				"schema": {"employeeID":"int", "firstName":"string"}
+			}
+		},		
+		{
+			"stageSeqNo": "4",
+			"stageName": "ValidationStep",
+			"stageDescription": "Source data validation ",
+			"stageType": "validation",
+			"stageInput": {
+				"schema": {"employeeID":"int", "firstName":"string"},
+				"delimiter":","
+			},
+			"stageOutput": {
+				"schema": {"employeeID":"int", "firstName":"string"},
+				"delimiter":","
+			},
+			"errorOutput": {
+				"schema": {"employeeID":"int", "firstName":"string","errorMessage":"string"},
+				"delimiter":","
+			},			
+			"mapping": [
+				{
+					"inColumn": "employeeID",
+					"outColumn": "employeeID",
+					"functions": [{
+							"name": "nullcheck",
+							"action": "reject",
+							"parameters":""
+						},
+						{
+							"name": "datatypeint",
+							"action": "reject",
+							"parameters":""
+						}
+					]
+				},
+				{
+					"inColumn": "firstName",
+					"outColumn": "firstName",
+					"functions": [{
+						"name": "nullcheck",
+						"action": "reject",
+						"parameters":""
+					}]
+				}
+			]
+		},
+		{
+			"stageSeqNo": "5",
+			"stageName": "StandardizationStep",
+			"stageDescription": "Standardize data ",
+			"stageType": "standardization",
+			"stageInput": {
+				"schema": {"employeeID":"int", "firstName":"string"},
+				"delimiter":","
+			},
+			"stageOutput": {
+				"schema": {"employeeID":"int", "firstName":"string"},
+				"delimiter":","
+			},
+			"errorOutput": {
+				"schema": {"employeeID":"int", "firstName":"string"},
+				"delimiter":","
+			},			
+			"mapping": [
+				{
+					"inColumn": "employeeID",
+					"outColumn": "employeeID",
+					"functions":[]
+				},
+				{
+					"inColumn": "firstName",
+					"outColumn": "firstName",
+					"functions": [
+						{
+							"name":"strip",
+							"parameters":""
+						},
+						{
+							"name": "initcap",
+							"parameters":""
+						}
+					]
+				}
+			]
+		},		
+		{
+			"stageSeqNo":"6",
+			"stageName": "WriteToPrepared",
+			"stageDescription":"Write to Prepared Storage ",
+			"stageType": "writer",
+			"stageInput": {
+				"schema": {"employeeID":"int", "firstName":"string"},
+				"delimiter":","
+			},
+			"stageOutput": {
+				"type": "file",
+				"properties": {
+					"fileLocation": "customer_prepared",
+					"fileformat": "csv",
+					"fileDelimiter": ",",
+					"fileCompression": ""
+				},
+				"schema": {"employeeID":"int", "firstName":"string"}
+			}
+		},
+		{
+			"stageSeqNo": "8",
+			"stageName": "ReadFromPrepared",
+			"stageDescription": "ReadFromPrepared",
+			"stageType": "reader",
+			"stageInput": {
+				"type": "file",
+				"properties": {
+					"fileLocation": "customer_prepared",
+					"fileformat": "csv",
+					"fileDelimiter": ",",
+					"fileCompression": ""
+				},
+				"schema": {"employeeID":"int", "firstName":"string", "lastName":"string"},
+				"filters": [],
+				"sourceCustomSQL": ""
+			}
+		},
+		{
+			"stageSeqNo": "9",
+			"stagename": "CustomerLoad",
+			"stageDescription": "Load Customer to Big Query",
+			"stageType": "writer",
+			"stageInput": {
+				"schema": {"employeeID":"int", "firstName":"string", "lastName":"string"},
+				"delimiter":","
+			},
+			"stageOutput": {
+				"type":"bigquery",
+				"schema": {"employeeID":"int", "firstName":"string", "lastName":"string"},
+				"properties": {
+					"project": "iigdb",
+					"dataset": "localhost",
+					"table": "abcd",
+					"loadmethod":"overwrite",
+					"createtable":false
+				}
+			},
+			"errorOutput": {
+				"schema": {"employeeID":"int", "firstName":"string", "lastName":"string","errorMessage":"string"},
+				"delimiter":","
+			}
+		}
+	]
+}
